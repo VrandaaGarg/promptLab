@@ -36,7 +36,7 @@ export function ModelSelect({
       isSelected={(id) => id === value}
       onSelect={onChange}
       disabled={disabled}
-      className="w-[22rem]"
+      panelClassName="w-[22rem]"
       trigger={
         <>
           {model && <ProviderIcon provider={model.provider} className="size-3" />}

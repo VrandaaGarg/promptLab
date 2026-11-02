@@ -3,9 +3,9 @@ import { ArrowLeftRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
-import { Select } from '@/components/ui/select'
+import { DropdownSelect } from '@/components/ui/dropdown-select'
 import type { RunResponse } from '@/server/runs'
-import { responseNameText } from './response-name'
+import { ResponseName } from './response-name'
 import type { ResponseIdentity } from './types'
 
 type CompareDialogProps = {
@@ -72,17 +72,21 @@ export function CompareDialog({ open, onOpenChange, responses, identityOf }: Com
   const left = candidates.find((r) => r.id === leftId) ?? candidates[0]
   const right = candidates.find((r) => r.id === rightId) ?? candidates.find((r) => r.id !== left?.id)
 
-  const picker = (label: string, value: RunResponse | undefined, onChange: (id: string) => void) => (
-    <label className="block min-w-0 flex-1 space-y-1.5">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <Select value={value?.id ?? ''} onChange={(e) => onChange(e.target.value)}>
-        {candidates.map((r) => (
-          <option key={r.id} value={r.id}>
-            {responseNameText(r, identityOf(r.id))}
-          </option>
-        ))}
-      </Select>
-    </label>
+  const options = [{ options: candidates.map((r) => ({ value: r.id, content: <ResponseName response={r} identity={identityOf(r.id)} /> })) }]
+  const picker = (side: 'A' | 'B', value: RunResponse, onChange: (id: string) => void) => (
+    <div className="min-w-0 flex-1 space-y-1.5">
+      <span aria-hidden="true" className="block text-xs font-medium text-muted-foreground">
+        {side}
+      </span>
+      <DropdownSelect
+        variant="field"
+        label={`Response ${side}`}
+        groups={options}
+        isSelected={(id) => id === value.id}
+        onSelect={onChange}
+        trigger={<ResponseName response={value} identity={identityOf(value.id)} />}
+      />
+    </div>
   )
 
   return (

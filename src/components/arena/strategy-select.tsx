@@ -60,7 +60,7 @@ export function StrategySelect({
       isSelected={(id) => selected.has(id)}
       onSelect={(id) => onToggle(id)}
       disabled={disabled}
-      className="w-[22rem]"
+      panelClassName="w-[22rem]"
       trigger={
         <>
           {chosen.length > 0 && (

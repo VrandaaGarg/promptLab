@@ -1,45 +1,63 @@
-import { Select } from '@/components/ui/select'
+import { ProviderIcon } from '@/components/common/provider-icon'
+import { DropdownSelect } from '@/components/ui/dropdown-select'
 import { CATEGORY_LABELS, TASK_CATEGORIES, type TaskCategory } from '@/lib/domain'
-import { MODELS, type ModelId } from '@/lib/models'
+import { getModel, MODELS, PROVIDERS, type ModelId, type ModelOption } from '@/lib/models'
 import { cn } from '@/lib/utils'
 
-const isCategory = (value: string): value is TaskCategory => (TASK_CATEGORIES as readonly string[]).includes(value)
-const isModel = (value: string): value is ModelId => MODELS.some((m) => m.id === value)
+/** Sentinel option value for "no filter"; never reaches the URL. */
+const ALL = '' as const
 
 type FilterSelectProps<T> = { value: T | undefined; onChange: (value: T | undefined) => void; className?: string }
 
+const categoryGroups = [
+  {
+    options: [
+      { value: ALL, content: 'All categories' },
+      ...TASK_CATEGORIES.map((category) => ({ value: category, content: CATEGORY_LABELS[category] })),
+    ],
+  },
+]
+
+const modelLabel = (model: ModelOption) => (
+  <span className="flex min-w-0 items-center gap-2">
+    <ProviderIcon provider={model.provider} className="size-3 text-muted-foreground" />
+    <span className="truncate">{model.label}</span>
+  </span>
+)
+
+const modelGroups = [
+  { options: [{ value: ALL, content: 'All models' }] },
+  ...PROVIDERS.map((provider) => ({
+    label: provider.label,
+    options: MODELS.filter((m) => m.provider === provider.id).map((model) => ({ value: model.id, content: modelLabel(model) })),
+  })),
+]
+
 export function CategoryFilter({ value, onChange, className }: FilterSelectProps<TaskCategory>) {
   return (
-    <Select
-      aria-label="Filter by category"
-      value={value ?? ''}
-      onChange={(e) => onChange(isCategory(e.target.value) ? e.target.value : undefined)}
+    <DropdownSelect<TaskCategory | typeof ALL>
+      variant="field"
+      label="Filter by category"
+      groups={categoryGroups}
+      isSelected={(v) => v === (value ?? ALL)}
+      onSelect={(v) => onChange(v || undefined)}
       className={cn('w-full sm:w-40', className)}
-    >
-      <option value="">All categories</option>
-      {TASK_CATEGORIES.map((category) => (
-        <option key={category} value={category}>
-          {CATEGORY_LABELS[category]}
-        </option>
-      ))}
-    </Select>
+      trigger={<span className="truncate">{value ? CATEGORY_LABELS[value] : 'All categories'}</span>}
+    />
   )
 }
 
 export function ModelFilter({ value, onChange, className }: FilterSelectProps<ModelId>) {
+  const model = value && getModel(value)
   return (
-    <Select
-      aria-label="Filter by model"
-      value={value ?? ''}
-      onChange={(e) => onChange(isModel(e.target.value) ? e.target.value : undefined)}
+    <DropdownSelect<ModelId | typeof ALL>
+      variant="field"
+      label="Filter by model"
+      groups={modelGroups}
+      isSelected={(v) => v === (value ?? ALL)}
+      onSelect={(v) => onChange(v || undefined)}
       className={cn('w-full sm:w-48', className)}
-    >
-      <option value="">All models</option>
-      {MODELS.map((model) => (
-        <option key={model.id} value={model.id}>
-          {model.label}
-        </option>
-      ))}
-    </Select>
+      trigger={model ? modelLabel(model) : <span className="truncate">All models</span>}
+    />
   )
 }

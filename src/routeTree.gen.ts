@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ZzSelectPreviewRouteImport } from './routes/zz-select-preview'
 import { Route as AppArenaRouteImport } from './routes/_app/arena'
 import { Route as AppHistoryRouteImport } from './routes/_app/history'
 import { Route as AppInsightsRouteImport } from './routes/_app/insights'
@@ -39,6 +40,11 @@ const LoginRoute = LoginRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ZzSelectPreviewRoute = ZzSelectPreviewRouteImport.update({
+  id: '/zz-select-preview',
+  path: '/zz-select-preview',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppArenaRoute = AppArenaRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/zz-select-preview': typeof ZzSelectPreviewRoute
   '/arena': typeof AppArenaRoute
   '/history': typeof AppHistoryRoute
   '/insights': typeof AppInsightsRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/zz-select-preview': typeof ZzSelectPreviewRoute
   '/arena': typeof AppArenaRoute
   '/history': typeof AppHistoryRoute
   '/insights': typeof AppInsightsRoute
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/zz-select-preview': typeof ZzSelectPreviewRoute
   '/_app/arena': typeof AppArenaRoute
   '/_app/history': typeof AppHistoryRoute
   '/_app/insights': typeof AppInsightsRoute
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/zz-select-preview'
     | '/arena'
     | '/history'
     | '/insights'
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/zz-select-preview'
     | '/arena'
     | '/history'
     | '/insights'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/signup'
+    | '/zz-select-preview'
     | '/_app/arena'
     | '/_app/history'
     | '/_app/insights'
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ZzSelectPreviewRoute: typeof ZzSelectPreviewRoute
   RSlugRoute: typeof RSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiStreamResponseIdRoute: typeof ApiStreamResponseIdRoute
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/zz-select-preview': {
+      id: '/zz-select-preview'
+      path: '/zz-select-preview'
+      fullPath: '/zz-select-preview'
+      preLoaderRoute: typeof ZzSelectPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/arena': {
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ZzSelectPreviewRoute: ZzSelectPreviewRoute,
   RSlugRoute: RSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiStreamResponseIdRoute: ApiStreamResponseIdRoute,
