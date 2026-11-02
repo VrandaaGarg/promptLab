@@ -1,0 +1,6 @@
+import { motion } from 'motion/react'
+import { useId, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+export type SegmentedOption = { value: string; label: ReactNode; disabled?: boolean }
+export type SegmentedControlProps = { value: string; onValueChange: (value: string) => void; options: SegmentedOption[]; 'aria-label': string; className?: string }
+export function SegmentedControl({ value, onValueChange, options, className, 'aria-label': label }: SegmentedControlProps) { const id = useId(); return <div role="group" aria-label={label} className={cn('inline-flex gap-0.5 rounded-lg bg-surface-2 p-1', className)}>{options.map(option => <button key={option.value} type="button" disabled={option.disabled} aria-pressed={value === option.value} onClick={() => onValueChange(option.value)} className={cn('relative isolate rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40', value === option.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}>{value === option.value && <motion.span layoutId={`${id}-active`} transition={{ duration: 0.2, ease: 'easeOut' }} className="absolute inset-0 -z-10 rounded-md border border-border bg-surface" />}{option.label}</button>)}</div> }

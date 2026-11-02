@@ -1,0 +1,10 @@
+import { Star } from 'lucide-react'
+import { useRef, useState, type KeyboardEvent } from 'react'
+import { cn } from '@/lib/utils'
+export type StarRatingProps = { value: number; onChange?: (value: number) => void; readOnly?: boolean; size?: 'sm' | 'md' | 'lg'; className?: string; 'aria-label'?: string }
+export function StarRating({ value, onChange, readOnly = false, size = 'md', className, 'aria-label': label = 'Rating' }: StarRatingProps) {
+  const [hover, setHover] = useState(0); const refs = useRef<Array<HTMLButtonElement | null>>([]); const sizes = { sm: 'size-4', md: 'size-5', lg: 'size-6' }
+  const key = (event: KeyboardEvent<HTMLButtonElement>, current: number) => { let next = current; if (event.key === 'ArrowRight' || event.key === 'ArrowUp') next = current === 5 ? 1 : current + 1; else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') next = current === 1 ? 5 : current - 1; else if (event.key === 'Home') next = 1; else if (event.key === 'End') next = 5; else return; event.preventDefault(); onChange?.(next); refs.current[next - 1]?.focus() }
+  if (readOnly) return <span role="img" aria-label={`${label}: ${value} out of 5`} className={cn('inline-flex gap-1', className)}>{[1, 2, 3, 4, 5].map(n => <Star key={n} aria-hidden="true" className={cn(sizes[size], n <= value ? 'fill-warning text-warning' : 'text-border-strong')} />)}</span>
+  return <div role="radiogroup" aria-label={label} className={cn('inline-flex gap-1', className)} onMouseLeave={() => setHover(0)}>{[1, 2, 3, 4, 5].map(n => <button key={n} ref={el => { refs.current[n - 1] = el }} type="button" role="radio" aria-checked={value === n} aria-label={`${n} ${n === 1 ? 'star' : 'stars'}`} tabIndex={value === n || (!value && n === 1) ? 0 : -1} onClick={() => onChange?.(n)} onKeyDown={e => key(e, n)} onMouseEnter={() => setHover(n)} className="rounded-sm"><Star aria-hidden="true" className={cn(sizes[size], 'transition-colors', n <= (hover || value) ? 'fill-warning text-warning' : 'text-border-strong')} /></button>)}</div>
+}

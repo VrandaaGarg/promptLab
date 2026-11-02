@@ -1,0 +1,3 @@
+import { Toaster as Sonner, type ToasterProps } from 'sonner'
+import { useTheme } from '@/components/theme/theme-provider'
+export function Toaster(props: ToasterProps) { const { resolvedTheme } = useTheme(); return <Sonner {...props} theme={resolvedTheme} toastOptions={{ ...props.toastOptions, unstyled: true, classNames: { toast: 'group flex w-full items-center gap-3 rounded-lg border border-border bg-surface p-4 text-sm text-foreground', title: 'font-medium', description: 'text-muted-foreground', actionButton: 'rounded-md bg-primary px-3 py-1.5 text-primary-foreground', cancelButton: 'rounded-md bg-surface-2 px-3 py-1.5 text-foreground', closeButton: 'rounded-md border border-border bg-surface text-foreground', ...props.toastOptions?.classNames } }} /> }

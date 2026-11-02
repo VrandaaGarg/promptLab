@@ -1,0 +1,6 @@
+import { cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+import { Label } from './label'
+type ControlProps = { id?: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean | 'true' | 'false' }
+export type FieldProps = { label: ReactNode; children: ReactElement<ControlProps>; description?: ReactNode; error?: ReactNode; className?: string; id?: string }
+export function Field({ label, children, description, error, className, id }: FieldProps) { const generated = useId(); const controlId = id ?? children.props.id ?? generated; const descriptionId = description ? `${controlId}-description` : undefined; const errorId = error ? `${controlId}-error` : undefined; const describedBy = [children.props['aria-describedby'], descriptionId, errorId].filter(Boolean).join(' ') || undefined; return <div className={cn('space-y-1.5', className)}><Label htmlFor={controlId}>{label}</Label>{isValidElement(children) && cloneElement(children, { id: controlId, 'aria-describedby': describedBy, 'aria-invalid': error ? true : children.props['aria-invalid'] })}{description && <p id={descriptionId} className="text-xs leading-relaxed text-muted-foreground">{description}</p>}{error && <p id={errorId} className="text-xs text-destructive">{error}</p>}</div> }

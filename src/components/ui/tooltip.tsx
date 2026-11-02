@@ -1,0 +1,4 @@
+import { cloneElement, useId, type ReactElement, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+export type TooltipProps = { content: ReactNode; children: ReactElement<{ 'aria-describedby'?: string }>; className?: string }
+export function Tooltip({ content, children, className }: TooltipProps) { const id = useId(); const describedBy = [children.props['aria-describedby'], id].filter(Boolean).join(' '); return <span className={cn('group relative inline-flex', className)}>{cloneElement(children, { 'aria-describedby': describedBy })}<span id={id} role="tooltip" className="pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-60 -translate-x-1/2 rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">{content}</span></span> }
