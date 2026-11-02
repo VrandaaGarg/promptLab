@@ -9,7 +9,7 @@ const integer = new Intl.NumberFormat('en-US')
 const dateTime = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' })
 const shortDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
 
-export const EMPTY_VALUE = '—'
+const EMPTY_VALUE = '—'
 
 /** `$0.0004` for tiny amounts, `$1.27` otherwise; `—` when unknown. */
 export function formatCost(value: number | null | undefined): string {
@@ -45,8 +45,15 @@ export function formatDate(value: DateInput): string {
   return dateTime.format(toDate(value))
 }
 
-export function formatShortDate(value: DateInput): string {
+function formatShortDate(value: DateInput): string {
   return shortDate.format(toDate(value))
+}
+
+const utcDay = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+
+/** Formats a UTC calendar day key (`YYYY-MM-DD`) without shifting it into the local time zone. */
+export function formatDayKey(day: string): string {
+  return utcDay.format(new Date(`${day}T00:00:00Z`))
 }
 
 /** Compact relative time: `just now`, `5m ago`, `3h ago`, `2d ago`, then a short date. */

@@ -57,6 +57,8 @@ export const runs = pgTable(
     judgeModel: text().notNull(),
     blindMode: boolean().notNull().default(false),
     shareSlug: text().unique(),
+    /** Set while the AI judge is scoring; acts as an expiring lock against duplicate judge calls. */
+    judgeStartedAt: timestamp(),
     createdAt: timestamp().defaultNow().notNull(),
   },
   (t) => [index('runs_user_created_idx').on(t.userId, t.createdAt.desc())],

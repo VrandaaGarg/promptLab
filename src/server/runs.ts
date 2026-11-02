@@ -1,12 +1,19 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, asc, count, desc, eq, gte, ilike, inArray, isNull, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, ilike, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { getDb, schema } from '@/db'
 import { env } from '@/env'
-import { MAX_EXAMPLES, MAX_TASK_LENGTH, TASK_CATEGORIES, type Example } from '@/lib/domain'
+import {
+  MAX_EXAMPLES,
+  MAX_PROMPT_CHARS,
+  MAX_STRATEGIES_PER_RUN,
+  MAX_TASK_LENGTH,
+  TASK_CATEGORIES,
+  type Example,
+} from '@/lib/domain'
 import { MODEL_IDS, pickJudgeModel } from '@/lib/models'
-import { renderStrategyPrompt, strategyUsesRole } from '@/lib/strategies'
+import { DEFAULT_ROLE, renderStrategyPrompt, strategyUsesRole } from '@/lib/strategies'
 import { judgeResponses } from './ai/judge'
 import { prepareRunContext } from './ai/prepare'
 import { authMiddleware } from './middleware'
@@ -15,12 +22,29 @@ const { runs, responses, strategies } = schema
 
 const FALLBACK_COLOR = 'strategy-1'
 const FALLBACK_ICON = 'sparkles'
-const STALE_STREAM_MS = 5 * 60 * 1000
+/** Generation has a hard timeout well below this, so older in-flight rows were abandoned. */
+const STALE_RESPONSE_MS = 5 * 60 * 1000
+const JUDGE_LOCK_MS = 2 * 60 * 1000
+
+/** Marks responses that never started or never finished (closed tab, crashed process) as failed. */
+async function expireStaleResponses(runId: string) {
+  await getDb()
+    .update(responses)
+    .set({ status: 'error', error: 'Generation did not complete' })
+    .where(
+      and(
+        eq(responses.runId, runId),
+        inArray(responses.status, ['pending', 'streaming']),
+        lt(responses.createdAt, new Date(Date.now() - STALE_RESPONSE_MS)),
+      ),
+    )
+}
 
 async function loadRunDetail(where: SQL) {
   const db = getDb()
   const [run] = await db.select().from(runs).where(where).limit(1)
   if (!run) return null
+  await expireStaleResponses(run.id)
 
   const rows = await db
     .select({
@@ -73,7 +97,7 @@ const exampleSchema = z.object({
 const createRunSchema = z.object({
   task: z.string().trim().min(1, 'Describe a task').max(MAX_TASK_LENGTH),
   model: z.enum(MODEL_IDS),
-  strategyIds: z.array(z.uuid()).min(1, 'Pick at least one strategy').max(8),
+  strategyIds: z.array(z.uuid()).min(1, 'Pick at least one strategy').max(MAX_STRATEGIES_PER_RUN),
   blindMode: z.boolean().default(false),
   examples: z.array(exampleSchema).max(MAX_EXAMPLES).default([]),
 })
@@ -86,54 +110,76 @@ export const createRun = createServerFn({ method: 'POST' })
   .handler(async ({ data, context: { user } }) => {
     const db = getDb()
 
-    const [recent] = await db
-      .select({ value: count() })
-      .from(runs)
-      .where(and(eq(runs.userId, user.id), gte(runs.createdAt, new Date(Date.now() - 60 * 60 * 1000))))
-    const limit = env().RUNS_PER_HOUR
-    if ((recent?.value ?? 0) >= limit) {
-      throw new Error(`Rate limit reached: ${limit} runs per hour. Please try again later.`)
-    }
-
     const ids = [...new Set(data.strategyIds)]
     const found = await db
       .select()
       .from(strategies)
       .where(and(inArray(strategies.id, ids), or(isNull(strategies.userId), eq(strategies.userId, user.id))))
-    const selected = ids.map((id) => found.find((s) => s.id === id)).filter((s) => s !== undefined)
-    if (selected.length === 0) throw new Error('No valid strategies selected')
+    if (found.length !== ids.length) {
+      throw new Error('Some selected strategies are no longer available. Refresh and try again.')
+    }
+    const selected = ids.map((id) => found.find((s) => s.id === id)!)
 
-    const exampleCount = Math.max(0, ...selected.map((s) => s.exampleCount))
-    const hasUserExamples = data.examples.length > 0
-    const prepared = await prepareRunContext({
-      task: data.task,
-      exampleCount: hasUserExamples ? 0 : exampleCount,
-      needsRole: selected.some(strategyUsesRole),
-    })
-    const examples: Example[] = hasUserExamples ? data.examples : prepared.examples
-
-    const runId = crypto.randomUUID()
-    await db.batch([
-      db.insert(runs).values({
-        id: runId,
-        userId: user.id,
-        task: data.task,
-        examples,
+    const renderAll = (examples: Example[], role: string) =>
+      selected.map((strategy, position) => ({
+        runId,
+        strategyId: strategy.id,
+        strategyName: strategy.name,
+        position,
         model: data.model,
-        judgeModel: pickJudgeModel(data.model),
-        blindMode: data.blindMode,
-      }),
-      db.insert(responses).values(
-        selected.map((strategy, position) => ({
-          runId,
-          strategyId: strategy.id,
-          strategyName: strategy.name,
-          position,
-          model: data.model,
-          ...renderStrategyPrompt(strategy, { task: data.task, examples, role: prepared.role }),
-        })),
-      ),
+        ...renderStrategyPrompt(strategy, { task: data.task, examples, role }),
+      }))
+    const assertWithinBudget = (rows: ReturnType<typeof renderAll>) => {
+      const oversized = rows.find((r) => (r.systemPrompt?.length ?? 0) + r.userPrompt.length > MAX_PROMPT_CHARS)
+      if (oversized) {
+        throw new Error(`The “${oversized.strategyName}” prompt is too long. Shorten the task or the strategy template.`)
+      }
+    }
+
+    // Preflight before spending anything (examples are added later and are size-bounded).
+    const runId = crypto.randomUUID()
+    assertWithinBudget(renderAll(data.examples, DEFAULT_ROLE))
+
+    // Reserve the run slot before any paid model call. The advisory lock serialises concurrent
+    // requests from the same user inside the batch transaction, so the hourly limit is exact.
+    const limit = env().RUNS_PER_HOUR
+    const [, reserved] = await db.batch([
+      db.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${user.id}))`),
+      db.execute(sql`
+        INSERT INTO ${runs} (id, user_id, task, model, judge_model, blind_mode)
+        SELECT ${runId}, ${user.id}, ${data.task}, ${data.model}, ${pickJudgeModel(data.model)}, ${data.blindMode}
+        WHERE (
+          SELECT count(*) FROM ${runs}
+          WHERE user_id = ${user.id} AND created_at > now() - interval '1 hour'
+        ) < ${limit}
+        RETURNING id`),
     ])
+    if (reserved.rows.length === 0) {
+      throw new Error(`Rate limit reached: ${limit} runs per hour. Please try again later.`)
+    }
+
+    try {
+      const exampleCount = Math.max(0, ...selected.map((s) => s.exampleCount))
+      const hasUserExamples = data.examples.length > 0
+      const prepared = await prepareRunContext({
+        task: data.task,
+        exampleCount: hasUserExamples ? 0 : exampleCount,
+        needsRole: selected.some(strategyUsesRole),
+      })
+      const examples: Example[] = hasUserExamples ? data.examples : prepared.examples
+
+      const rows = renderAll(examples, prepared.role)
+      assertWithinBudget(rows)
+
+      await db.batch([
+        db.update(runs).set({ examples }).where(eq(runs.id, runId)),
+        db.insert(responses).values(rows),
+      ])
+    } catch (error) {
+      // Release the reserved slot so a failed preparation does not count against the limit.
+      await db.delete(runs).where(eq(runs.id, runId))
+      throw error
+    }
 
     return requireOwnedRun(runId, user.id)
   })
@@ -152,8 +198,17 @@ export const getSharedRun = createServerFn({ method: 'GET' })
   .handler(async ({ data }) => {
     const run = await loadRunDetail(eq(runs.shareSlug, data.slug))
     if (!run) throw new Error('This shared run does not exist or is no longer shared')
-    const { userId: _userId, ...publicRun } = run
-    return publicRun
+    // Personal feedback, owner identity and raw provider errors stay private.
+    const { userId: _userId, judgeStartedAt: _judgeStartedAt, ...publicRun } = run
+    return {
+      ...publicRun,
+      responses: run.responses.map((r) => ({
+        ...r,
+        rating: null,
+        isWinner: false,
+        error: r.error ? 'Generation failed' : null,
+      })),
+    }
   })
 
 const listRunsSchema = z.object({
@@ -241,29 +296,42 @@ export const judgeRun = createServerFn({ method: 'POST' })
   .validator(idSchema)
   .handler(async ({ data, context: { user } }) => {
     const run = await requireOwnedRun(data.id, user.id)
-    const now = Date.now()
-    const inFlight = run.responses.some(
-      (r) =>
-        r.status === 'pending' ||
-        (r.status === 'streaming' && now - r.createdAt.getTime() < STALE_STREAM_MS),
-    )
-    if (inFlight) throw new Error('Responses are still being generated')
-
+    if (run.responses.some((r) => r.status === 'pending' || r.status === 'streaming')) {
+      throw new Error('Responses are still being generated')
+    }
     const candidates = run.responses.filter((r) => r.status === 'done' && r.output.trim())
     if (candidates.length === 0) throw new Error('There are no completed responses to judge')
     if (candidates.every((r) => r.judgeScore)) return run
 
-    const { category, scores } = await judgeResponses(run.task, run.judgeModel, candidates)
+    // Expiring lock: only one judge call per run at a time, even across tabs.
     const db = getDb()
-    await db.batch([
-      db.update(runs).set({ category }).where(eq(runs.id, run.id)),
-      ...candidates.map((c) =>
-        db
-          .update(responses)
-          .set({ judgeScore: scores.get(c.id) ?? null })
-          .where(eq(responses.id, c.id)),
-      ),
-    ])
+    const [claimed] = await db
+      .update(runs)
+      .set({ judgeStartedAt: new Date() })
+      .where(
+        and(
+          eq(runs.id, run.id),
+          or(isNull(runs.judgeStartedAt), lt(runs.judgeStartedAt, new Date(Date.now() - JUDGE_LOCK_MS))),
+        ),
+      )
+      .returning({ id: runs.id })
+    if (!claimed) throw new Error('The AI judge is already scoring this run')
+
+    try {
+      const { category, scores } = await judgeResponses(run.task, run.judgeModel, candidates)
+      await db.batch([
+        db.update(runs).set({ category, judgeStartedAt: null }).where(eq(runs.id, run.id)),
+        ...candidates.map((c) =>
+          db
+            .update(responses)
+            .set({ judgeScore: scores.get(c.id)! })
+            .where(eq(responses.id, c.id)),
+        ),
+      ])
+    } catch (error) {
+      await db.update(runs).set({ judgeStartedAt: null }).where(eq(runs.id, run.id))
+      throw error
+    }
     return requireOwnedRun(run.id, user.id)
   })
 

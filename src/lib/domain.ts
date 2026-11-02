@@ -34,3 +34,9 @@ export const TEMPLATE_VARIABLES = {
 
 export const MAX_TASK_LENGTH = 4000
 export const MAX_EXAMPLES = 5
+export const MAX_STRATEGIES_PER_RUN = 8
+/** Upper bound for a single rendered prompt (system + user), protecting cost and context size. */
+export const MAX_PROMPT_CHARS = 24_000
+
+export const isInFlight = (item: { status: ResponseStatus }) =>
+  item.status === 'pending' || item.status === 'streaming'

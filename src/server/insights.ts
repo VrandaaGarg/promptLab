@@ -16,6 +16,9 @@ const nullableNum = (expr: ReturnType<typeof sql>) =>
 
 const judgeOverall = sql`(${responses.judgeScore}->>'overall')::numeric`
 const runHasWinner = sql`EXISTS (SELECT 1 FROM ${responses} AS w WHERE w.run_id = ${responses.runId} AND w.is_winner)`
+// Group by the strategy itself (names are not unique); fall back to the snapshot name once deleted.
+const strategyKey = sql<string>`coalesce(${responses.strategyId}::text, 'deleted:' || ${responses.strategyName})`
+const strategyLabel = sql<string>`coalesce(max(${strategies.name}), max(${responses.strategyName}))`
 
 export const getInsights = createServerFn({ method: 'GET' })
   .middleware([authMiddleware])
@@ -40,13 +43,14 @@ export const getInsights = createServerFn({ method: 'GET' })
     const [perStrategy, byCategory, timeline, [totals]] = await Promise.all([
       db
         .select({
-          strategyName: responses.strategyName,
+          strategyKey,
+          strategyName: strategyLabel,
           color: sql<string | null>`max(${strategies.color})`,
           responses: num(sql`count(*)`),
           rated: num(sql`count(${responses.rating})`),
           avgRating: nullableNum(sql`avg(${responses.rating})`),
           wins: num(sql`count(*) filter (where ${responses.isWinner})`),
-          contested: num(sql`count(*) filter (where ${runHasWinner})`),
+          contested: num(sql`count(distinct ${responses.runId}) filter (where ${runHasWinner})`),
           avgJudge: nullableNum(sql`avg(${judgeOverall})`),
           avgOutputTokens: nullableNum(sql`avg(${responses.outputTokens})`),
           avgCost: nullableNum(sql`avg(${responses.costUsd})`),
@@ -55,11 +59,12 @@ export const getInsights = createServerFn({ method: 'GET' })
         .innerJoin(runs, eq(responses.runId, runs.id))
         .leftJoin(strategies, eq(responses.strategyId, strategies.id))
         .where(and(scope, eq(responses.status, 'done')))
-        .groupBy(responses.strategyName),
+        .groupBy(strategyKey),
 
       db
         .select({
-          strategyName: responses.strategyName,
+          strategyKey,
+          strategyName: strategyLabel,
           category: runs.category,
           avgJudge: nullableNum(sql`avg(${judgeOverall})`),
           avgRating: nullableNum(sql`avg(${responses.rating})`),
@@ -67,8 +72,9 @@ export const getInsights = createServerFn({ method: 'GET' })
         })
         .from(responses)
         .innerJoin(runs, eq(responses.runId, runs.id))
+        .leftJoin(strategies, eq(responses.strategyId, strategies.id))
         .where(and(scope, eq(responses.status, 'done'), sql`${runs.category} IS NOT NULL`))
-        .groupBy(responses.strategyName, runs.category),
+        .groupBy(strategyKey, runs.category),
 
       db
         .select({

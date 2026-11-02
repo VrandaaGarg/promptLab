@@ -10,7 +10,9 @@ import appCss from '@/styles/app.css?url'
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   beforeLoad: async ({ context }) => {
-    const user = await context.queryClient.ensureQueryData(sessionQuery())
+    // fetchQuery (unlike ensureQueryData) refetches once the short staleTime has passed, so an
+    // expired or revoked session is noticed on the next navigation.
+    const user = await context.queryClient.fetchQuery(sessionQuery())
     return { user }
   },
   head: () => ({

@@ -7,5 +7,16 @@ import { nitro } from 'nitro/vite'
 export default defineConfig({
   server: { port: 3000 },
   resolve: { tsconfigPaths: true },
+  environments: {
+    client: {
+      build: {
+        rolldownOptions: {
+          // better-auth's client pulls in an unused, frozen ENV accessor object (server env var
+          // names only). Marking Object.freeze pure lets the client bundle drop it.
+          treeshake: { manualPureFunctions: ['Object.freeze'] },
+        },
+      },
+    },
+  },
   plugins: [tailwindcss(), tanstackStart(), nitro(), viteReact()],
 })

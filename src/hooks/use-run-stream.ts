@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ResponseStatus } from '@/lib/domain'
+import { isInFlight, type ResponseStatus } from '@/lib/domain'
 import { runQuery } from '@/lib/queries'
 import type { RunDetail, RunResponse } from '@/server/runs'
 import { useJudgeRun } from './use-run-mutations'
@@ -23,13 +23,9 @@ async function streamResponse(responseId: string, onDelta: (text: string) => voi
   if (rest) onDelta(rest)
 }
 
-function isInFlight(status: ResponseStatus) {
-  return status === 'pending' || status === 'streaming'
-}
-
 /**
  * Streams every pending response of a run in parallel, merges live text over the cached run,
- * then refreshes the run from the database and asks the AI judge to score it.
+ * refreshes the run from the database, and asks the AI judge to score it once everything settled.
  */
 export function useRunStream(run: RunDetail | undefined) {
   const queryClient = useQueryClient()
@@ -71,17 +67,29 @@ export function useRunStream(run: RunDetail | undefined) {
         }
       }),
     ).then(async () => {
-      const fresh = await queryClient.fetchQuery({ ...runQuery(runId), staleTime: 0 }).catch(() => undefined)
+      await queryClient.fetchQuery({ ...runQuery(runId), staleTime: 0 }).catch(() => undefined)
       setLive((all) => {
         const next = { ...all }
         toStart.forEach((id) => delete next[id])
         return next
       })
-      if (fresh?.responses.some((r) => r.status === 'done' && !r.judgeScore)) {
-        judgeRun({ id: runId })
-      }
     })
-  }, [runId, pendingIds, patch, queryClient, judgeRun])
+  }, [runId, pendingIds, patch, queryClient])
+
+  const isStreaming = Object.values(live).some(isInFlight)
+
+  // Judge from persisted state, so it also happens after a refresh or for a finished but unscored run.
+  // One automatic attempt per run per page; failures surface a manual retry instead of looping.
+  const autoJudged = useRef(new Set<string>())
+  useEffect(() => {
+    if (!run || isStreaming || autoJudged.current.has(run.id)) return
+    const settled = !run.responses.some(isInFlight)
+    const needsScores = run.responses.some((r) => r.status === 'done' && r.output.trim() && !r.judgeScore)
+    if (settled && needsScores) {
+      autoJudged.current.add(run.id)
+      judgeRun({ id: run.id })
+    }
+  }, [run, isStreaming, judgeRun])
 
   const responses: RunResponse[] = useMemo(
     () =>
@@ -92,14 +100,9 @@ export function useRunStream(run: RunDetail | undefined) {
     [run, live],
   )
 
-  const isStreaming = Object.values(live).some((l) => isInFlight(l.status))
-  /** Responses generating on the server that this tab is not streaming (e.g. after a refresh). */
-  const hasDetachedWork = !isStreaming && responses.some((r) => isInFlight(r.status))
-
   return {
     responses,
     isStreaming,
-    hasDetachedWork,
     isJudging: judge.isPending,
     judgeError: judge.error?.message ?? null,
     runJudge: () => {

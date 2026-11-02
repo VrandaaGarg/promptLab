@@ -22,7 +22,7 @@ export const sessionQuery = () =>
   queryOptions({
     queryKey: queryKeys.session,
     queryFn: () => getCurrentUser(),
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
   })
 
 export const strategiesQuery = () =>

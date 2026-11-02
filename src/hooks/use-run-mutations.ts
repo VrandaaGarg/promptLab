@@ -15,19 +15,24 @@ import {
 function useRunCache() {
   const queryClient = useQueryClient()
 
-  const update = (runId: string, fn: (run: RunDetail) => RunDetail) => {
-    const key = queryKeys.run(runId)
-    const previous = queryClient.getQueryData<RunDetail>(key)
-    if (previous) queryClient.setQueryData<RunDetail>(key, fn(previous))
-    return () => queryClient.setQueryData(key, previous)
+  const update = (runId: string, fn: (run: RunDetail) => RunDetail) =>
+    queryClient.setQueryData<RunDetail>(queryKeys.run(runId), (run) => (run ? fn(run) : run))
+
+  /** Applies an optimistic change after cancelling in-flight fetches that could overwrite it. */
+  const optimistic = async (runId: string, fn: (run: RunDetail) => RunDetail) => {
+    await queryClient.cancelQueries({ queryKey: queryKeys.run(runId) })
+    update(runId, fn)
   }
+
+  /** On failure, re-sync with the server instead of restoring a possibly outdated snapshot. */
+  const resync = (runId: string) => queryClient.invalidateQueries({ queryKey: queryKeys.run(runId) })
 
   const invalidateLists = () => {
     void queryClient.invalidateQueries({ queryKey: [...queryKeys.runs, 'list'] })
     void queryClient.invalidateQueries({ queryKey: ['insights'] })
   }
 
-  return { queryClient, update, invalidateLists }
+  return { queryClient, update, optimistic, resync, invalidateLists }
 }
 
 const notifyError = (error: Error) => toast.error(error.message)
@@ -48,8 +53,19 @@ export function useJudgeRun() {
   const { queryClient, invalidateLists } = useRunCache()
   return useMutation({
     mutationFn: (data: { id: string }) => judgeRun({ data }),
-    onSuccess: (run) => {
-      queryClient.setQueryData(queryKeys.run(run.id), run)
+    onSuccess: (judged) => {
+      // Keep feedback from the cache: the user may have rated while the judge was running.
+      queryClient.setQueryData<RunDetail>(queryKeys.run(judged.id), (cached) =>
+        cached
+          ? {
+              ...judged,
+              responses: judged.responses.map((r) => {
+                const current = cached.responses.find((c) => c.id === r.id)
+                return current ? { ...r, rating: current.rating, isWinner: current.isWinner } : r
+              }),
+            }
+          : judged,
+      )
       invalidateLists()
     },
     onError: (error) => toast.error(`AI judge failed: ${error.message}`),
@@ -57,16 +73,17 @@ export function useJudgeRun() {
 }
 
 export function useRateResponse(runId: string) {
-  const { update, invalidateLists } = useRunCache()
+  const { optimistic, resync, invalidateLists } = useRunCache()
   return useMutation({
+    scope: { id: `feedback:${runId}` }, // run feedback mutations for one run in click order
     mutationFn: (data: { responseId: string; rating: number | null }) => rateResponse({ data }),
     onMutate: ({ responseId, rating }) =>
-      update(runId, (run) => ({
+      optimistic(runId, (run) => ({
         ...run,
         responses: run.responses.map((r) => (r.id === responseId ? { ...r, rating } : r)),
       })),
-    onError: (error, _vars, rollback) => {
-      rollback?.()
+    onError: (error) => {
+      void resync(runId)
       notifyError(error)
     },
     onSettled: invalidateLists,
@@ -74,16 +91,17 @@ export function useRateResponse(runId: string) {
 }
 
 export function useSetWinner(runId: string) {
-  const { update, invalidateLists } = useRunCache()
+  const { optimistic, resync, invalidateLists } = useRunCache()
   return useMutation({
+    scope: { id: `feedback:${runId}` }, // run feedback mutations for one run in click order
     mutationFn: (data: { responseId: string; isWinner: boolean }) => setWinner({ data }),
     onMutate: ({ responseId, isWinner }) =>
-      update(runId, (run) => ({
+      optimistic(runId, (run) => ({
         ...run,
         responses: run.responses.map((r) => ({ ...r, isWinner: r.id === responseId ? isWinner : false })),
       })),
-    onError: (error, _vars, rollback) => {
-      rollback?.()
+    onError: (error) => {
+      void resync(runId)
       notifyError(error)
     },
     onSettled: invalidateLists,

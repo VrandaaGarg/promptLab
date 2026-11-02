@@ -9,6 +9,8 @@ import { getSessionUser } from '@/server/middleware'
 const { responses, runs } = schema
 
 const MAX_OUTPUT_TOKENS = 2048
+/** Must stay below the stale threshold in `src/server/runs.ts`. */
+const GENERATION_TIMEOUT_MS = 3 * 60 * 1000
 
 export const Route = createFileRoute('/api/stream/$responseId')({
   server: {
@@ -51,6 +53,7 @@ export const Route = createFileRoute('/api/stream/$responseId')({
           instructions: claimed.systemPrompt ?? undefined,
           prompt: claimed.userPrompt,
           maxOutputTokens: MAX_OUTPUT_TOKENS,
+          timeout: GENERATION_TIMEOUT_MS,
           onError: ({ error }) => {
             streamError = error
           },
@@ -70,6 +73,9 @@ export const Route = createFileRoute('/api/stream/$responseId')({
 
         // Generation is decoupled from the HTTP connection: it finishes and is persisted even if the
         // client disconnects, and the result is saved before the stream closes so the client can rely on it.
+        // Final writes only apply while still `streaming`, so rows already expired as stale stay untouched.
+        const stillStreaming = and(eq(responses.id, claimed.id), eq(responses.status, 'streaming'))
+
         void (async () => {
           let text = ''
           try {
@@ -88,12 +94,12 @@ export const Route = createFileRoute('/api/stream/$responseId')({
                 outputTokens: usage.outputTokens ?? null,
                 costUsd: readCost(finalStep.providerMetadata),
               })
-              .where(eq(responses.id, claimed.id))
+              .where(stillStreaming)
           } catch (error) {
             await db
               .update(responses)
               .set({ output: text, status: 'error', error: errorMessage(error).slice(0, 500) })
-              .where(eq(responses.id, claimed.id))
+              .where(stillStreaming)
               .catch(() => undefined)
             if (!clientGone) controller.error(error)
             return

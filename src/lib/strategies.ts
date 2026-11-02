@@ -95,11 +95,16 @@ function formatExamples(examples: Example[]): string {
     .join('\n\n')
 }
 
+const PLACEHOLDER = /\{\{(task|examples|role)\}\}/g
+
+// Single pass with a replacer function: user content is inserted literally and never re-scanned.
 function fill(text: string, ctx: RenderContext, exampleCount: number): string {
-  return text
-    .replaceAll(TEMPLATE_VARIABLES.examples, formatExamples(ctx.examples.slice(0, exampleCount)))
-    .replaceAll(TEMPLATE_VARIABLES.role, ctx.role)
-    .replaceAll(TEMPLATE_VARIABLES.task, ctx.task)
+  const values = {
+    task: ctx.task,
+    role: ctx.role,
+    examples: formatExamples(ctx.examples.slice(0, exampleCount)),
+  }
+  return text.replace(PLACEHOLDER, (_, key: keyof typeof values) => values[key])
 }
 
 /** Builds the exact system and user prompt that will be sent for a strategy. */

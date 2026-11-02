@@ -9,13 +9,67 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as AppArenaRouteImport } from './routes/_app/arena'
+import { Route as AppHistoryRouteImport } from './routes/_app/history'
+import { Route as AppInsightsRouteImport } from './routes/_app/insights'
+import { Route as AppStrategiesRouteImport } from './routes/_app/strategies'
+import { Route as RSlugRouteImport } from './routes/r.$slug'
+import { Route as AppRunsRunIdRouteImport } from './routes/_app/runs.$runId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiStreamResponseIdRouteImport } from './routes/api/stream.$responseId'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppArenaRoute = AppArenaRouteImport.update({
+  id: '/arena',
+  path: '/arena',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHistoryRoute = AppHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInsightsRoute = AppInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStrategiesRoute = AppStrategiesRouteImport.update({
+  id: '/strategies',
+  path: '/strategies',
+  getParentRoute: () => AppRoute,
+} as any)
+const RSlugRoute = RSlugRouteImport.update({
+  id: '/r/$slug',
+  path: '/r/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRunsRunIdRoute = AppRunsRunIdRouteImport.update({
+  id: '/runs/$runId',
+  path: '/runs/$runId',
+  getParentRoute: () => AppRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -29,43 +83,170 @@ const ApiStreamResponseIdRoute = ApiStreamResponseIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppRoute
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/arena': typeof AppArenaRoute
+  '/history': typeof AppHistoryRoute
+  '/insights': typeof AppInsightsRoute
+  '/strategies': typeof AppStrategiesRoute
+  '/r/$slug': typeof RSlugRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stream/$responseId': typeof ApiStreamResponseIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AppRoute
+  '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/arena': typeof AppArenaRoute
+  '/history': typeof AppHistoryRoute
+  '/insights': typeof AppInsightsRoute
+  '/strategies': typeof AppStrategiesRoute
+  '/r/$slug': typeof RSlugRoute
+  '/runs/$runId': typeof AppRunsRunIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stream/$responseId': typeof ApiStreamResponseIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_app': typeof AppRoute
+  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/_app/arena': typeof AppArenaRoute
+  '/_app/history': typeof AppHistoryRoute
+  '/_app/insights': typeof AppInsightsRoute
+  '/_app/strategies': typeof AppStrategiesRoute
+  '/r/$slug': typeof RSlugRoute
+  '/_app/runs/$runId': typeof AppRunsRunIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stream/$responseId': typeof ApiStreamResponseIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/auth/$' | '/api/stream/$responseId'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/arena'
+    | '/history'
+    | '/insights'
+    | '/strategies'
+    | '/r/$slug'
+    | '/runs/$runId'
+    | '/api/auth/$'
+    | '/api/stream/$responseId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/auth/$' | '/api/stream/$responseId'
-  id: '__root__' | '/_app' | '/api/auth/$' | '/api/stream/$responseId'
+  to:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/arena'
+    | '/history'
+    | '/insights'
+    | '/strategies'
+    | '/r/$slug'
+    | '/runs/$runId'
+    | '/api/auth/$'
+    | '/api/stream/$responseId'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/login'
+    | '/signup'
+    | '/_app/arena'
+    | '/_app/history'
+    | '/_app/insights'
+    | '/_app/strategies'
+    | '/r/$slug'
+    | '/_app/runs/$runId'
+    | '/api/auth/$'
+    | '/api/stream/$responseId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AppRoute: typeof AppRoute
+  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
+  RSlugRoute: typeof RSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiStreamResponseIdRoute: typeof ApiStreamResponseIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/arena': {
+      id: '/_app/arena'
+      path: '/arena'
+      fullPath: '/arena'
+      preLoaderRoute: typeof AppArenaRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/history': {
+      id: '/_app/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AppHistoryRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/insights': {
+      id: '/_app/insights'
+      path: '/insights'
+      fullPath: '/insights'
+      preLoaderRoute: typeof AppInsightsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/strategies': {
+      id: '/_app/strategies'
+      path: '/strategies'
+      fullPath: '/strategies'
+      preLoaderRoute: typeof AppStrategiesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/r/$slug': {
+      id: '/r/$slug'
+      path: '/r/$slug'
+      fullPath: '/r/$slug'
+      preLoaderRoute: typeof RSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/runs/$runId': {
+      id: '/_app/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/runs/$runId'
+      preLoaderRoute: typeof AppRunsRunIdRouteImport
+      parentRoute: typeof AppRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -84,8 +265,30 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppRouteChildren {
+  AppArenaRoute: typeof AppArenaRoute
+  AppHistoryRoute: typeof AppHistoryRoute
+  AppInsightsRoute: typeof AppInsightsRoute
+  AppStrategiesRoute: typeof AppStrategiesRoute
+  AppRunsRunIdRoute: typeof AppRunsRunIdRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppArenaRoute: AppArenaRoute,
+  AppHistoryRoute: AppHistoryRoute,
+  AppInsightsRoute: AppInsightsRoute,
+  AppStrategiesRoute: AppStrategiesRoute,
+  AppRunsRunIdRoute: AppRunsRunIdRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  AppRoute: AppRoute,
+  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
+  RSlugRoute: RSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiStreamResponseIdRoute: ApiStreamResponseIdRoute,
 }
