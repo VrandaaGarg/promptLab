@@ -69,8 +69,8 @@ export function ArenaPreview() {
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Task</span>
         <p className="min-w-0 flex-1 truncate text-sm">{TASK}</p>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-xs">
-          <ProviderIcon provider="anthropic" className="size-3" />
-          Claude Haiku 5.5
+          <ProviderIcon provider="deepseek" className="size-3" />
+          DeepSeek V4 Flash
         </span>
       </div>
 

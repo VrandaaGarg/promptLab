@@ -7,7 +7,7 @@ Make prompt engineering visible, comparable and measurable. Enter one task and w
 | Layer | Choice |
 | --- | --- |
 | Framework | TanStack Start (Router, Query, Form, Table) on Vite 8 |
-| AI | Vercel AI SDK 7 + OpenRouter (Anthropic Claude, xAI Grok) |
+| AI | Vercel AI SDK 7 + OpenRouter (DeepSeek, Qwen, Kimi) |
 | Database | Neon Postgres + Drizzle ORM |
 | Auth | Better Auth (email + password) |
 | UI | Tailwind CSS v4, Motion, Lucide + React Icons, Recharts |
@@ -46,9 +46,9 @@ See [`.env.example`](./.env.example):
 
 ## How a run works
 
-1. `createRun` checks the rate limit. If the run needs them, it generates worked examples and an expert persona with Claude Haiku, then saves the run and one `pending` response per strategy, along with the exact prompts.
+1. `createRun` checks the rate limit. If the run needs them, it generates worked examples and an expert persona with DeepSeek V4 Flash, then saves the run and one `pending` response per strategy, along with the exact prompts.
 2. The browser opens one stream per response (`POST /api/stream/:responseId`). The server atomically claims the response, streams it from OpenRouter, and saves the output, tokens and cost **before** closing the stream. Generation keeps going even if the tab is closed.
-3. When every stream has finished, `judgeRun` scores the anonymised responses with a different model (Sonnet, or Grok when Sonnet produced the responses) and assigns a task category.
+3. When every stream has finished, `judgeRun` scores the anonymised responses with a different model (Qwen 3.8 Max, or DeepSeek V4 Pro when Qwen 3.8 Max produced the responses) and assigns a task category.
 4. Ratings, the winner pick and share links update the cache optimistically. Insights are aggregated in SQL.
 
 ## Project structure

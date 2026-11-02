@@ -1,9 +1,8 @@
-import { RiTwitterXFill } from 'react-icons/ri'
-import { SiAnthropic } from 'react-icons/si'
+import { SiDeepseek, SiMoonshotai, SiQwen } from 'react-icons/si'
 import { getModel, type ModelProvider } from '@/lib/models'
 import { cn } from '@/lib/utils'
 
-const icons = { anthropic: SiAnthropic, xai: RiTwitterXFill } as const
+const icons = { deepseek: SiDeepseek, qwen: SiQwen, moonshot: SiMoonshotai } as const
 
 export function ProviderIcon({ provider, className }: { provider: ModelProvider; className?: string }) {
   const Icon = icons[provider]

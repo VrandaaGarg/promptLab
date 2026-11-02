@@ -1,11 +1,6 @@
 import { ProviderIcon } from '@/components/common/provider-icon'
 import { DropdownSelect } from '@/components/ui/dropdown-select'
-import { getModel, MODELS, type ModelId, type ModelProvider } from '@/lib/models'
-
-const PROVIDERS: { id: ModelProvider; label: string }[] = [
-  { id: 'anthropic', label: 'Anthropic' },
-  { id: 'xai', label: 'xAI' },
-]
+import { getModel, MODELS, PROVIDERS, type ModelId } from '@/lib/models'
 
 const groups = PROVIDERS.map((provider) => ({
   label: provider.label,
