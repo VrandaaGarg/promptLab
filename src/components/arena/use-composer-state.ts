@@ -35,13 +35,25 @@ export function useComposerState({
     strategyIds.length <= MAX_STRATEGIES_PER_RUN &&
     !hasPartialExample
 
-  const toggleStrategy = (id: string, pressed: boolean) =>
+  const toggleStrategy = (id: string) =>
     setSelected((current) => {
       const next = new Set(current)
-      if (pressed) next.add(id)
-      else next.delete(id)
+      if (!next.delete(id) && next.size < MAX_STRATEGIES_PER_RUN) next.add(id)
       return next
     })
+
+  /** Selects every strategy, keeping current picks first when the per-run limit applies. */
+  const selectAllStrategies = () =>
+    setSelected(
+      new Set(
+        [...strategyIds, ...strategies.map((s) => s.id).filter((id) => !selected.has(id))].slice(
+          0,
+          MAX_STRATEGIES_PER_RUN,
+        ),
+      ),
+    )
+
+  const clearStrategies = () => setSelected(new Set())
 
   const toInput = (): CreateRunInput => ({
     task: trimmed,
@@ -58,6 +70,8 @@ export function useComposerState({
     setModel,
     selected,
     toggleStrategy,
+    selectAllStrategies,
+    clearStrategies,
     selectedCount: strategyIds.length,
     blindMode,
     setBlindMode,
