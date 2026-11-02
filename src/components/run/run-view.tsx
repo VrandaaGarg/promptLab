@@ -1,25 +1,15 @@
 import { motion } from 'motion/react'
+import { useId, useState } from 'react'
 import { useRateResponse, useSetWinner } from '@/hooks/use-run-mutations'
-import { staggerContainer } from '@/lib/motion'
-import { cn } from '@/lib/utils'
 import type { RunResponse } from '@/server/runs'
 import { BlindBanner } from './blind-banner'
-import { JudgeBar } from './judge-bar'
-import { ResponseCard } from './response-card'
+import { ResponsePanel, type PanelSection } from './response-panel'
 import { RunActions } from './run-actions'
-import { RunExamples } from './run-examples'
 import { RunHeader } from './run-header'
+import { RunSummary } from './run-summary'
+import { StrategyTabs, panelId, tabId } from './strategy-tabs'
 import type { RunLiveState, RunViewData } from './types'
 import { useBlindReveal } from './use-blind-reveal'
-
-/** Column layout by response count, so 4 responses don't leave a ragged 3+1 grid. */
-const GRID_COLUMNS: Record<number, string> = {
-  1: 'max-w-3xl',
-  2: 'md:grid-cols-2',
-  3: 'md:grid-cols-2 lg:grid-cols-3',
-  4: 'md:grid-cols-2 xl:grid-cols-4',
-  5: 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
-}
 
 export type RunViewProps = {
   run: RunViewData
@@ -36,6 +26,10 @@ export function RunView({ run, responses = run.responses, editable, live, showOp
   const rate = useRateResponse(run.id)
   const setWinner = useSetWinner(run.id)
   const blind = useBlindReveal({ blindMode: run.blindMode, responses, editable })
+  const idPrefix = useId()
+  const [activeId, setActiveId] = useState<string>()
+  const [section, setSection] = useState<PanelSection>('response')
+  const active = blind.ordered.find((r) => r.id === activeId) ?? blind.ordered[0]
 
   return (
     <div className="space-y-6">
@@ -56,29 +50,47 @@ export function RunView({ run, responses = run.responses, editable, live, showOp
         <BlindBanner hidden={blind.hidden} ratedCount={blind.ratedCount} doneCount={blind.doneCount} onReveal={blind.reveal} />
       )}
 
-      <motion.div
-        variants={staggerContainer(0.06)}
-        initial="hidden"
-        animate="visible"
-        className={cn('grid grid-cols-1 gap-4', GRID_COLUMNS[blind.ordered.length] ?? 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4')}
-      >
-        {blind.ordered.map((response) => (
-          <ResponseCard
-            key={response.id}
-            response={response}
-            identity={blind.identityOf(response.id)}
-            examples={run.examples}
-            judgeModel={run.judgeModel}
-            editable={editable}
-            onRate={(rating) => rate.mutate({ responseId: response.id, rating })}
-            onToggleWinner={(isWinner) => setWinner.mutate({ responseId: response.id, isWinner })}
+      {active && (
+        <div className="space-y-4">
+          <StrategyTabs
+            responses={blind.ordered}
+            activeId={active.id}
+            onSelect={setActiveId}
+            identityOf={blind.identityOf}
+            idPrefix={idPrefix}
           />
-        ))}
-      </motion.div>
+          <motion.div
+            key={active.id}
+            role="tabpanel"
+            id={panelId(idPrefix)}
+            aria-labelledby={tabId(idPrefix, active.id)}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            <ResponsePanel
+              response={active}
+              identity={blind.identityOf(active.id)}
+              judgeModel={run.judgeModel}
+              editable={editable}
+              live={live}
+              section={section}
+              onSectionChange={setSection}
+              onRate={(rating) => rate.mutate({ responseId: active.id, rating })}
+              onToggleWinner={(isWinner) => setWinner.mutate({ responseId: active.id, isWinner })}
+            />
+          </motion.div>
+        </div>
+      )}
 
-      <JudgeBar responses={responses} judgeModel={run.judgeModel} identityOf={blind.identityOf} live={live} />
-
-      <RunExamples examples={run.examples} />
+      <RunSummary
+        responses={blind.ordered}
+        judgeModel={run.judgeModel}
+        identityOf={blind.identityOf}
+        live={live}
+        activeId={active?.id}
+        onSelect={setActiveId}
+      />
     </div>
   )
 }

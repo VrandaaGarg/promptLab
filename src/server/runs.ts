@@ -51,6 +51,7 @@ async function loadRunDetail(where: SQL) {
       response: responses,
       color: strategies.color,
       icon: strategies.icon,
+      exampleCount: strategies.exampleCount,
     })
     .from(responses)
     .leftJoin(strategies, eq(responses.strategyId, strategies.id))
@@ -59,10 +60,15 @@ async function loadRunDetail(where: SQL) {
 
   return {
     ...run,
-    responses: rows.map(({ response, color, icon }) => ({
+    responses: rows.map(({ response, color, icon, exampleCount }) => ({
       ...response,
       color: color ?? FALLBACK_COLOR,
       icon: icon ?? FALLBACK_ICON,
+      // Examples this strategy injected; inferred from the prompt snapshot if the strategy was deleted.
+      examples:
+        exampleCount !== null
+          ? run.examples.slice(0, exampleCount)
+          : run.examples.filter((e) => response.userPrompt.includes(e.input)),
     })),
   }
 }

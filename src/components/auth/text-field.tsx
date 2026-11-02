@@ -1,6 +1,7 @@
-import type { HTMLInputAutoCompleteAttribute } from 'react'
+import type { ChangeEvent, HTMLInputAutoCompleteAttribute } from 'react'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 
 export type TextFieldProps = {
   name: string
@@ -17,16 +18,17 @@ export type TextFieldProps = {
 
 /** Labelled input wired to a TanStack Form field's primitive state. */
 export function TextField({ name, label, value, onChange, onBlur, error, type = 'text', ...props }: TextFieldProps) {
+  const inputProps = {
+    name,
+    value,
+    onChange: (e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
+    onBlur,
+    ...props,
+  }
+
   return (
     <Field label={label} error={error}>
-      <Input
-        name={name}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        {...props}
-      />
+      {type === 'password' ? <PasswordInput {...inputProps} /> : <Input type={type} {...inputProps} />}
     </Field>
   )
 }
